@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "codepal": {
+      "command": "/opt/codepal/bin/codepal",
+      "args": [
+         "--workspace=."
+        ,"--enable-compressed"
+      ],
+      "env": {}
+    }
+  }
+}

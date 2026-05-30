@@ -1,0 +1,20 @@
+[Unit]
+Description=Mail Archive Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+NoNewPrivileges=true
+ProtectSystem=strict
+PrivateTmp=true
+
+# Run the mailarch program.
+# Modify the path to the binary and config file as needed.
+# The `copy` mode is used here, which keeps messages on the server.
+# Change to `move` if you want to delete messages from the server after archiving.
+ExecStart=/opt/mailarch/bin/mailarch --config /opt/mailarch/etc/mailarch/mailarch.conf copy
+
+# Change this to the appropriate user and group for your system
+User=USER
+Group=GROUP

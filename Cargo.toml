@@ -1,0 +1,63 @@
+[package]
+name = "mailarch"
+description = "A mail archiving system"
+version = "0.1.0"
+edition = "2024"
+authors = [ "Michael Büsch <m@bues.ch>", "AI coding assistant" ]
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+anyhow = "1"
+async-imap = { version = "0.11", default-features = false, features = [ "runtime-tokio" ] }
+async-native-tls = { version = "0.6", default-features = false, features = [ "runtime-tokio" ] }
+chrono = "0.4"
+clap = { version = "4", features = [ "derive" ] }
+env_logger = "0.11"
+log = "0.4"
+serde = { version = "1", features = [ "derive" ] }
+sha3 = "0.12"
+tempfile = "3"
+tokio = { version = "1", features = [ "rt-multi-thread", "macros", "fs", "signal" ] }
+tokio-stream = "0.1"
+toml = "1"
+itertools = "0.14"
+
+[lints.clippy]
+# Lints from `cargo` group
+cargo = "warn"
+cargo-common-metadata = { level = "allow", priority = 1 }
+multiple-crate-versions = { level = "allow", priority = 1 }
+
+# Lints from `pedantic` group
+pedantic = "warn"
+default_trait_access = { level = "allow", priority = 1 }
+missing-errors-doc = { level = "allow", priority = 1 }
+missing-panics-doc = { level = "allow", priority = 1 }
+similar-names = { level = "allow", priority = 1 }
+struct-excessive-bools = { level = "allow", priority = 1 }
+too-many-lines = { level = "allow", priority = 1 }
+
+# Lints from `restriction` group
+clone_on_ref_ptr = "warn"
+dbg_macro = "warn"
+mem_forget = "warn"
+precedence_bits = "warn"
+todo = "warn"
+try_err = "warn"
+undocumented_unsafe_blocks = "warn"
+unimplemented = "warn"
+unseparated_literal_suffix = "warn"
+unused_result_ok = "warn"
+unused_trait_names = "warn"
+
+[profile.dev]
+debug = "limited"
+panic = "abort"
+
+[profile.release]
+opt-level = "z"
+lto = "fat"
+panic = "abort"
+strip = "symbols"
+overflow-checks = true
