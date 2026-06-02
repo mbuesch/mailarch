@@ -49,7 +49,8 @@ jobs:
         run: rustup component add rust-src miri
 
       - run: cargo build
-      - run: cargo clippy --all-targets -- --deny warnings
+      - if: matrix.os.name == 'linux' && matrix.toolchain.name == 'stable'
+        run: cargo clippy --all-targets -- --deny warnings
       - run: cargo test
       - if: matrix.os.name == 'linux' && matrix.toolchain.name == 'nightly'
         run: cargo miri test
