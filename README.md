@@ -37,19 +37,6 @@ run0 ./install.sh   # installs to /opt/mailarch/
 
 The default configuration file is installed at `/opt/mailarch/etc/mailarch/mailarch.conf`:
 
-```toml
-[imap]
-host = "mail.example.com"
-#port = 993
-username = "user@example.com"
-password = "secret"
-
-[archive]
-directory = "/home/user/mail/archive"
-min_age_days = 30
-# skip_mailboxes = [ "INBOX/Spam", "INBOX/Trash" ]
-```
-
 ## Usage
 
 ```sh
