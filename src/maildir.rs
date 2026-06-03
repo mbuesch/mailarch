@@ -213,6 +213,7 @@ impl Maildir {
                             }
                         }
                     }
+                    info!("Hashing existing MH messages in {}", base.display());
                     // Hash all existing messages to build the dedup set.
                     let mut rd = fs::read_dir(base)
                         .await
@@ -226,6 +227,7 @@ impl Maildir {
                             mh_known.insert(Self::message_hash(&raw));
                         }
                     }
+                    info!("Found {} existing MH messages", mh_known.len());
                 }
             }
         }
