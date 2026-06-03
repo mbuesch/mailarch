@@ -62,6 +62,16 @@ pub enum MailboxFormat {
     Mh,
 }
 
+impl std::fmt::Display for MailboxFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MailboxFormat::Maildir => write!(f, "maildir"),
+            MailboxFormat::MaildirPP => write!(f, "maildir++"),
+            MailboxFormat::Mh => write!(f, "mh"),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ArchiveConfig {
     directory: PathBuf,

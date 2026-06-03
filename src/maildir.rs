@@ -178,6 +178,7 @@ pub struct Maildir {
 impl Maildir {
     pub async fn open(base: &Path, format: MailboxFormat, dry_run: bool) -> ah::Result<Self> {
         let mut mh_known = HashSet::new();
+        info!("Opening local {format} mailbox at {}", base.display());
         if !dry_run {
             match format {
                 MailboxFormat::Maildir | MailboxFormat::MaildirPP => {
@@ -195,17 +196,21 @@ impl Maildir {
                     // Claws-Mail requires .mh_sequences in every MH folder.
                     let seq_file = base.join(".mh_sequences");
                     if !seq_file.exists() {
+                        info!("Creating .mh_sequences file {}", seq_file.display());
                         fs::write(&seq_file, "")
                             .await
                             .with_context(|| format!("Failed to create {}", seq_file.display()))?;
                     }
                     // Delete the Claws-Mail cache.
                     let cache_file = base.join(".claws_cache");
-                    match fs::remove_file(&cache_file).await {
-                        Ok(()) => {}
-                        Err(e) if e.kind() == ErrorKind::NotFound => {}
-                        Err(e) => {
-                            log::warn!("Failed to remove {}: {e:#}", cache_file.display());
+                    if cache_file.exists() {
+                        info!("Removing Claws-Mail cache {}", cache_file.display());
+                        match fs::remove_file(&cache_file).await {
+                            Ok(()) => {}
+                            Err(e) if e.kind() == ErrorKind::NotFound => {}
+                            Err(e) => {
+                                log::warn!("Failed to remove {}: {e:#}", cache_file.display());
+                            }
                         }
                     }
                     // Hash all existing messages to build the dedup set.
