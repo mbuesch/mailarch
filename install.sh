@@ -41,6 +41,11 @@ install_mailarch()
         -o root -g root -m 0755 \
         "$target/mailarch" \
         /opt/mailarch/bin/
+
+    do_install \
+        -o root -g root -m 0755 \
+        "$basedir/claws-mail-archived" \
+        /opt/mailarch/bin/
 }
 
 release="release"

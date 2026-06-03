@@ -26,6 +26,8 @@ Three operating modes are supported:
 This is not a generic IMAP client.
 It cannot be used to do arbitrary operations on the server, and it is not designed for interactive use.
 
+This tool does not support unencrypted IMAP.
+
 ## Build & Install
 
 ```sh
@@ -42,6 +44,10 @@ The default configuration file is installed at `/opt/mailarch/etc/mailarch/maila
 ```sh
 mailarch [--config <path>] <copy|move|dry-run>
 ```
+
+## Archive emails before Claws-Mail startup
+
+Call the wrapper script `claws-mail-archived` instead of `claws-mail` to automatically archive emails before starting Claws-Mail.
 
 ## systemd
 
