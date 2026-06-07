@@ -2,6 +2,7 @@ use crate::{
     config::{Config, MailboxFormat},
     deferred::Deferred,
     imap_client::ImapClient,
+    lock::Lock,
     maildir::{Maildir, StoreResult, mailbox_path},
 };
 use anyhow::{self as ah, Context as _, format_err as err};
@@ -17,22 +18,41 @@ use tokio::{
 mod config;
 mod deferred;
 mod imap_client;
+mod lock;
 mod maildir;
 
 const WORKER_THREADS: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
-enum Mode {
+pub enum Mode {
     Copy,
     Move,
     DryRun,
 }
 
-fn mode_prefix(mode: Mode) -> &'static str {
-    match mode {
-        Mode::DryRun => "[dry-run] ",
-        Mode::Copy => "[copy] ",
-        Mode::Move => "[move] ",
+impl Mode {
+    #[must_use]
+    pub fn prefix(self) -> &'static str {
+        match self {
+            Mode::DryRun => "[dry-run] ",
+            Mode::Copy => "[copy] ",
+            Mode::Move => "[move] ",
+        }
+    }
+
+    #[must_use]
+    pub fn is_copy(self) -> bool {
+        self == Mode::Copy
+    }
+
+    #[must_use]
+    pub fn is_move(self) -> bool {
+        self == Mode::Move
+    }
+
+    #[must_use]
+    pub fn is_dry_run(self) -> bool {
+        self == Mode::DryRun
     }
 }
 
@@ -71,7 +91,7 @@ async fn process_mailbox(
     args: &Args,
     interrupt_rx: &mut sync::mpsc::Receiver<ah::Error>,
 ) -> ah::Result<usize> {
-    let pfx = mode_prefix(args.mode);
+    let pfx = args.mode.prefix();
 
     let uids = match client.fetch_archivable_uids(min_age_days).await {
         Ok(u) => u,
@@ -86,10 +106,14 @@ async fn process_mailbox(
         return Ok(0);
     }
 
+    let _mailbox_lock = Lock::acquire_mailbox(local_dir, args.mode, interrupt_rx)
+        .await
+        .with_context(|| err!("Cannot lock mailbox '{name}'"))?;
+
     // Open the maildir lazily in the background.
     let mut maildir = Deferred::new({
         let local_dir = local_dir.to_path_buf();
-        let dry_run = args.mode == Mode::DryRun;
+        let dry_run = args.mode.is_dry_run();
         async move { Maildir::open(&local_dir, format, dry_run).await }
     });
 
@@ -128,7 +152,7 @@ async fn process_mailbox(
                 Ok(StoreResult::AlreadyExists { identical: true }) => {
                     info!(
                         "{pfx}UID {uid} from '{name}' already archived.{}",
-                        if args.mode == Mode::Copy {
+                        if args.mode.is_copy() {
                             ""
                         } else {
                             " Will delete from server."
@@ -175,7 +199,7 @@ async fn process_mailbox(
     if processed > 0 {
         info!(
             "{pfx}'{name}': archived {}{processed} message(s).",
-            if args.mode == Mode::Move {
+            if args.mode.is_move() {
                 "and removed "
             } else {
                 ""
@@ -191,7 +215,7 @@ async fn handle_client(
     client: &mut ImapClient,
     interrupt_rx: &mut sync::mpsc::Receiver<ah::Error>,
 ) -> ah::Result<()> {
-    let pfx = mode_prefix(args.mode);
+    let pfx = args.mode.prefix();
 
     let mailboxes = client.list_mailboxes().await?;
 
@@ -235,7 +259,7 @@ async fn handle_client(
 
     info!(
         "{pfx}Done. {} {total} message(s) total.",
-        if args.mode == Mode::Copy {
+        if args.mode.is_copy() {
             "archived (kept on server)"
         } else {
             "archived and removed"
@@ -255,7 +279,7 @@ async fn async_main() -> ah::Result<()> {
         Mode::Move => (),
     }
 
-    let pfx = mode_prefix(args.mode);
+    let pfx = args.mode.prefix();
     let mut sigterm = signal(SignalKind::terminate()).unwrap();
     let mut sigint = signal(SignalKind::interrupt()).unwrap();
     let mut sighup = signal(SignalKind::hangup()).unwrap();
@@ -265,6 +289,16 @@ async fn async_main() -> ah::Result<()> {
     let config = Config::load(&args.config).await?;
 
     task::spawn(async move {
+        let _imap_lock =
+            match Lock::acquire_imap(config.archive().directory(), args.mode, &mut interrupt_rx)
+                .await
+            {
+                Ok(lock) => lock,
+                Err(e) => {
+                    exit_tx.send(Err(e)).await.expect("Exit code failed");
+                    return;
+                }
+            };
         let result = match ImapClient::connect(config.imap()).await {
             Ok(mut client) => {
                 info!(
