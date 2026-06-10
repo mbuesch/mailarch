@@ -111,7 +111,7 @@ async fn process_mailbox(
         .with_context(|| err!("Cannot lock mailbox '{name}'"))?;
 
     // Open the maildir lazily in the background.
-    let mut maildir = Deferred::new({
+    let mut maildir = Deferred::spawn({
         let local_dir = local_dir.to_path_buf();
         let dry_run = args.mode.is_dry_run();
         async move { Maildir::open(&local_dir, format, dry_run).await }
