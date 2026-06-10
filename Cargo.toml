@@ -64,8 +64,6 @@ debug = "limited"
 panic = "abort"
 
 [profile.release]
-opt-level = "z"
 lto = "fat"
 panic = "abort"
 strip = "symbols"
-overflow-checks = true
