@@ -4,11 +4,17 @@ use async_imap::{
     Client, Session,
     types::{Capability, NameAttribute},
 };
-use async_native_tls::TlsStream;
 use chrono::{TimeDelta, Utc};
 use itertools::sorted_unstable;
 use log::{debug, error, warn};
+use rustls_native_certs::load_native_certs;
+use std::sync::Arc;
 use tokio::net::TcpStream;
+use tokio_rustls::{
+    TlsConnector,
+    client::TlsStream,
+    rustls::{ClientConfig, RootCertStore, pki_types::ServerName},
+};
 use tokio_stream::StreamExt as _;
 
 type TlsSession = Session<TlsStream<TcpStream>>;
@@ -40,8 +46,28 @@ impl ImapClient {
         let tcp = TcpStream::connect((config.host(), config.port()))
             .await
             .with_context(|| format!("Failed to connect to {}:{}", config.host(), config.port()))?;
-        let tls = async_native_tls::TlsConnector::new()
-            .connect(config.host(), tcp)
+        let certs = load_native_certs();
+        if !certs.errors.is_empty() {
+            warn!(
+                "Some native CA certificates could not be loaded: {:?}",
+                certs.errors
+            );
+        }
+        let mut root_store = RootCertStore::empty();
+        for cert in certs.certs {
+            if let Err(e) = root_store.add(cert) {
+                warn!("Failed to add native root certificate: {e}");
+            }
+        }
+        let tls_config = ClientConfig::builder()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+        let connector = TlsConnector::from(Arc::new(tls_config));
+        let server_name = ServerName::try_from(config.host())
+            .with_context(|| format!("Invalid IMAP server hostname '{}'", config.host()))?
+            .to_owned();
+        let tls = connector
+            .connect(server_name, tcp)
             .await
             .with_context(|| format!("TLS handshake failed for {}", config.host()))?;
         let client = Client::new(tls);
