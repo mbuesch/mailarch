@@ -138,7 +138,7 @@ async fn process_mailbox(
 
             let uid = msg.uid;
 
-            let maildir = match maildir.as_mut().await? {
+            let maildir = match maildir.join().await? {
                 Ok(m) => m,
                 Err(e) => {
                     return Err(err!("{pfx}Cannot open local maildir for '{name}': {e:#}"));
