@@ -22,6 +22,7 @@ mod lock;
 mod maildir;
 
 const WORKER_THREADS: usize = 2;
+const CONF_PATH: &str = "etc/mailarch/mailarch.conf";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum Mode {
@@ -69,16 +70,29 @@ struct Args {
     mode: Mode,
 
     /// Path to the configuration file.
-    #[arg(
-        long,
-        short,
-        default_value = "/opt/mailarch/etc/mailarch/mailarch.conf"
-    )]
-    config: PathBuf,
+    ///
+    /// If not provided, defaults to install-prefix + /etc/mailarch/mailarch.conf
+    #[arg(long, short)]
+    config: Option<PathBuf>,
 
     /// Number of messages to fetch in one batch when processing a mailbox.
     #[arg(long, short = 'C', default_value_t = 128, value_name = "NR_MESSAGES")]
     fetch_chunk_size: usize,
+}
+
+impl Args {
+    fn config(&self) -> PathBuf {
+        if let Some(path) = &self.config {
+            path.into()
+        } else {
+            let mut path: PathBuf = match option_env!("MAILARCH_CONF_PREFIX") {
+                Some(p) if !p.is_empty() => p.into(),
+                _ => "/".into(),
+            };
+            path.push(CONF_PATH);
+            path
+        }
+    }
 }
 
 /// Archive messages in one already-selected mailbox. Returns the number of messages processed.
@@ -286,7 +300,7 @@ async fn async_main() -> ah::Result<()> {
     let (exit_tx, mut exit_rx) = sync::mpsc::channel(1);
     let (interrupt_tx, mut interrupt_rx) = sync::mpsc::channel(1);
 
-    let config = Config::load(&args.config).await?;
+    let config = Config::load(&args.config()).await?;
 
     task::spawn(async move {
         let _imap_lock =
