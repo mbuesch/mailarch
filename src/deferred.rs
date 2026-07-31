@@ -69,3 +69,42 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicU32, Ordering},
+    };
+    use tokio::sync::Barrier;
+
+    #[tokio::test]
+    async fn test_deferred() {
+        let b = Arc::new((Barrier::new(2), Barrier::new(2), Barrier::new(2)));
+        let cnt = Arc::new(AtomicU32::new(0));
+        let mut d = Deferred::spawn({
+            let b = Arc::clone(&b);
+            let cnt = Arc::clone(&cnt);
+            async move {
+                b.0.wait().await;
+                cnt.store(1, Ordering::SeqCst);
+                b.1.wait().await;
+                b.2.wait().await;
+                cnt.store(2, Ordering::SeqCst);
+                42
+            }
+        });
+        assert_eq!(cnt.load(Ordering::SeqCst), 0);
+        b.0.wait().await;
+        b.1.wait().await;
+        assert_eq!(cnt.load(Ordering::SeqCst), 1);
+        assert!(d.as_mut().is_none());
+        assert!(d.as_ref().is_none());
+        b.2.wait().await;
+        assert_eq!(*d.join().await.unwrap(), 42);
+        assert_eq!(cnt.load(Ordering::SeqCst), 2);
+        assert_eq!(*d.as_mut().unwrap(), 42);
+        assert_eq!(*d.as_ref().unwrap(), 42);
+    }
+}
